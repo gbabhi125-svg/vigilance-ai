@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vigilance AI — Identity Blast-Radius Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+/* ── RESET & TOKENS ─────────────────────────────────────────────── */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:       #050810;
+  --surface:  #0c1120;
+  --surface2: #111827;
+  --border:   #1e2d45;
+  --border2:  #243450;
+  --accent:   #e31837;
+  --accent2:  #ff3d5a;
+  --blue:     #3b82f6;
+  --cyan:     #06b6d4;
+  --green:    #10b981;
+  --yellow:   #f59e0b;
+  --red:      #ef4444;
+  --purple:   #8b5cf6;
+  --text:     #f1f5f9;
+  --muted:    #64748b;
+  --muted2:   #94a3b8;
+  --glow-r:   rgba(227,24,55,.35);
+  --glow-b:   rgba(59,130,246,.25);
+  --font:     'Segoe UI', system-ui, sans-serif;
+}
+body { background:var(--bg); color:var(--text); font-family:var(--font); min-height:100vh; overflow-x:hidden; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+/* ── HEADER ─────────────────────────────────────────────────────── */
+.header {
+  position:sticky; top:0; z-index:50;
+  background:rgba(5,8,16,.92); backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:0 28px; height:60px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-mark {
+  width:38px; height:38px; background:linear-gradient(135deg,var(--accent),#b01428);
+  border-radius:10px; display:flex; align-items:center; justify-content:center;
+  font-weight:900; font-size:15px; color:#fff;
+  box-shadow:0 0 16px var(--glow-r);
+}
+.logo-name { font-size:17px; font-weight:800; letter-spacing:-.3px; }
+.logo-sub  { font-size:10px; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; margin-top:1px; }
+.header-right { display:flex; align-items:center; gap:12px; }
+.live-pill {
+  display:flex; align-items:center; gap:6px;
+  background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.3);
+  color:var(--green); padding:5px 12px; border-radius:20px; font-size:11px; font-weight:700;
+}
+.live-dot { width:7px; height:7px; background:var(--green); border-radius:50%; animation:blink 1.2s infinite; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+.hackathon-tag {
+  background:linear-gradient(135deg,rgba(227,24,55,.15),rgba(139,92,246,.15));
+  border:1px solid rgba(227,24,55,.3); color:var(--muted2);
+  padding:5px 12px; border-radius:20px; font-size:10px; font-weight:700;
+  letter-spacing:.05em; text-transform:uppercase;
+}
+
+/* ── NAV TABS ── */
+.nav-tabs { display:flex; gap:4px; background:var(--surface); padding:4px; border-radius:10px; }
+.tab-btn {
+  background:none; border:none; color:var(--muted); padding:6px 14px; border-radius:7px;
+  font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.tab-btn.active { background:var(--surface2); color:var(--text); }
+.tab-btn:hover:not(.active) { color:var(--muted2); }
+
+/* ── MAIN ── */
+.main { padding:24px 28px; max-width:1700px; margin:0 auto; }
+.view { display:none; }
+.view.active { display:block; }
+
+/* ── KPI GRID ── */
+.kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:22px; }
+.kpi {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:14px; padding:18px 20px; position:relative; overflow:hidden;
+  transition:border-color .2s;
+}
+.kpi::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:var(--kpi-color, var(--blue));
+}
+.kpi:hover { border-color:var(--border2); }
+.kpi-icon { font-size:20px; margin-bottom:8px; }
+.kpi-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+.kpi-value { font-size:30px; font-weight:800; color:var(--kpi-color, var(--text)); line-height:1; }
+.kpi-sub   { font-size:11px; color:var(--muted); margin-top:6px; }
+.kpi.red   { --kpi-color: var(--red); }
+.kpi.orange{ --kpi-color: var(--yellow); }
+.kpi.blue  { --kpi-color: var(--blue); }
+.kpi.green { --kpi-color: var(--green); }
+.kpi.purple{ --kpi-color: var(--purple); }
+
+/* ── CARDS ── */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:18px; }
+.card-head {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid var(--border);
+}
+.card-title { font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px; }
+.card-title span { font-size:16px; }
+
+/* ── TABLE ── */
+.tbl-wrap { overflow-x:auto; max-height:420px; overflow-y:auto; border-radius:8px; }
+table { width:100%; border-collapse:collapse; }
+th {
+  position:sticky; top:0; z-index:2;
+  background:var(--surface2); color:var(--muted);
+  text-align:left; padding:10px 14px; font-size:10px;
+  text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid var(--border2);
+  white-space:nowrap;
+}
+td { padding:12px 14px; font-size:13px; border-bottom:1px solid rgba(30,45,69,.5); vertical-align:middle; }
+tr.r { cursor:pointer; transition:background .15s; }
+tr.r:hover { background:rgba(59,130,246,.05); }
+
+/* ── BADGES ── */
+.badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 10px; border-radius:20px; font-size:10px; font-weight:800; white-space:nowrap;
+}
+.badge.CRITICAL { background:rgba(239,68,68,.15); color:var(--red); animation:pulse-r 1.6s infinite; }
+.badge.HIGH     { background:rgba(245,158,11,.15); color:var(--yellow); }
+.badge.MEDIUM   { background:rgba(59,130,246,.15);  color:var(--blue); }
+.badge.LOW      { background:rgba(16,185,129,.15);  color:var(--green); }
+@keyframes pulse-r { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5);} 50%{box-shadow:0 0 0 5px rgba(239,68,68,0);} }
+.tag {
+  display:inline-block; background:var(--border); color:var(--muted2);
+  font-size:9px; padding:2px 7px; border-radius:4px; margin-right:3px; white-space:nowrap;
+}
+.tag.sensitive { background:rgba(227,24,55,.15); color:var(--accent2); border:1px solid rgba(227,24,55,.3); }
+
+/* ── SCORE BIG ── */
+.score-big { font-size:52px; font-weight:900; line-height:1; }
+.score-big.CRITICAL { color:var(--red); text-shadow:0 0 30px var(--glow-r); }
+.score-big.HIGH     { color:var(--yellow); }
+.score-big.MEDIUM   { color:var(--blue); }
+.score-big.LOW      { color:var(--green); }
+
+/* ── FACTOR BARS ── */
+.factor { margin-bottom:10px; }
+.factor-top { display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px; }
+.factor-top .fw { color:var(--yellow); font-weight:700; }
+.factor-track { background:var(--border); border-radius:3px; height:6px; overflow:hidden; }
+.factor-fill  { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; transition:width .9s ease-out; }
+
+/* ── MODAL ── */
+.overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.75);
+  backdrop-filter:blur(6px); z-index:200; align-items:center; justify-content:center;
+  padding:20px; overflow-y:auto;
+}
+.overlay.show { display:flex; }
+.modal {
+  background:var(--surface); border:1px solid var(--border2);
+  border-radius:18px; width:100%; max-width:1450px; padding:26px;
+  box-shadow:0 25px 80px rgba(0,0,0,.6); animation:slideup .25s ease;
+}
+@keyframes slideup { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:none} }
+.modal-hd { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+.modal-name { font-size:22px; font-weight:800; }
+.modal-sub  { font-size:12px; color:var(--muted); margin-top:3px; }
+.close-x {
+  background:var(--border); border:none; color:var(--muted2);
+  width:34px; height:34px; border-radius:9px; cursor:pointer; font-size:18px;
+  display:flex; align-items:center; justify-content:center; transition:all .2s; flex-shrink:0;
+}
+.close-x:hover { background:var(--border2); color:var(--text); }
+
+/* ── PANEL GRID ── */
+.panel-row { display:grid; gap:16px; margin-bottom:16px; }
+.p3 { grid-template-columns:1.1fr 1fr 1fr; }
+.p3b { grid-template-columns:1fr 1fr 1fr; }
+.panel {
+  background:var(--bg); border:1px solid var(--border);
+  border-radius:12px; padding:16px; min-height:180px;
+}
+.panel-title { font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; margin-bottom:12px; }
+
+/* ── ACTION ITEMS ── */
+.action-item {
+  display:flex; align-items:center; gap:8px; font-size:12px;
+  padding:9px 12px; background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; margin-bottom:6px;
+}
+.action-item.auto   { border-left:3px solid var(--green); }
+.action-item.manual { border-left:3px solid var(--yellow); }
+.action-p { font-size:9px; padding:1px 6px; border-radius:3px; font-weight:700; }
+.action-p.P1 { background:rgba(239,68,68,.2); color:var(--red); }
+.action-p.P2 { background:rgba(245,158,11,.2); color:var(--yellow); }
+.action-p.P3 { background:rgba(59,130,246,.2); color:var(--blue); }
+
+/* ── REMEDIATE BTN ── */
+.remediate-btn {
+  width:100%; margin-top:12px; padding:13px;
+  background:linear-gradient(135deg,var(--accent),#b01428);
+  color:#fff; border:none; border-radius:10px; font-weight:800; font-size:14px;
+  cursor:pointer; box-shadow:0 0 24px var(--glow-r); transition:all .2s;
+  letter-spacing:.02em;
+}
+.remediate-btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 0 34px var(--glow-r); }
+.remediate-btn:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+
+/* ── RESULT BOX ── */
+.result-box {
+  display:none; margin-top:12px; padding:14px;
+  background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.25);
+  border-radius:10px; animation:fadein .4s ease;
+}
+.result-box.show { display:block; }
+@keyframes fadein { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+.result-row { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
+.result-row span:last-child { color:var(--green); font-weight:700; }
+
+/* ── FEEDBACK ── */
+.fb-bar { display:flex; gap:8px; margin-top:10px; }
+.fb-btn {
+  flex:1; padding:7px; background:var(--border); border:none; color:var(--muted2);
+  border-radius:7px; cursor:pointer; font-size:11px; font-weight:700; transition:all .2s;
+}
+.fb-btn:hover { background:var(--border2); color:var(--text); }
+.fb-btn.ok { background:rgba(16,185,129,.15); color:var(--green); border:1px solid rgba(16,185,129,.3); }
+
+/* ── COMPLIANCE ITEMS ── */
+.comp-item {
+  padding:10px 12px; background:rgba(239,68,68,.07); border:1px solid rgba(239,68,68,.2);
+  border-radius:8px; margin-bottom:8px; font-size:12px;
+}
+.comp-item strong { color:var(--red); font-size:11px; }
+.comp-ok { color:var(--green); font-size:12px; padding:10px; }
+
+/* ── SOD ITEMS ── */
+.sod-item {
+  padding:10px 12px; background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.25);
+  border-radius:8px; margin-bottom:8px; font-size:12px;
+}
+.sod-item strong { color:var(--accent2); }
+
+/* ── DLP ALERTS ── */
+.dlp-item {
+  padding:9px 12px; background:rgba(139,92,246,.1); border:1px solid rgba(139,92,246,.25);
+  border-radius:8px; margin-bottom:6px; font-size:11px;
+}
+.dlp-item strong { color:var(--purple); }
+
+/* ── CLUSTERS ── */
+.cluster-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.cluster-card {
+  padding:14px 16px; background:var(--bg); border:1px solid var(--border);
+  border-radius:10px; border-left:3px solid var(--cl-color);
+}
+.cluster-name  { font-size:13px; font-weight:700; color:var(--cl-color); margin-bottom:6px; }
+.cluster-stats { display:flex; gap:14px; flex-wrap:wrap; }
+.cl-stat { font-size:11px; color:var(--muted); }
+.cl-stat b { color:var(--muted2); }
+
+/* ── ORG ANOMALIES ── */
+.org-item {
+  padding:12px 14px; background:var(--bg); border:1px solid var(--border);
+  border-radius:10px; margin-bottom:8px; display:flex; align-items:center; gap:14px;
+}
+.org-dept { font-size:14px; font-weight:700; min-width:120px; }
+.org-type { font-size:12px; color:var(--muted2); }
+.org-metric { font-size:11px; color:var(--muted); margin-top:2px; }
+
+/* ── TIMELINE ── */
+.timeline { max-height:380px; overflow-y:auto; }
+.tl-item {
+  display:flex; align-items:flex-start; gap:12px; padding:12px 0;
+  border-bottom:1px solid rgba(30,45,69,.5);
+}
+.tl-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.tl-dot.CRITICAL { background:var(--red); box-shadow:0 0 8px var(--red); }
+.tl-dot.HIGH     { background:var(--yellow); }
+.tl-dot.MEDIUM   { background:var(--blue); }
+.tl-dot.LOW      { background:var(--green); }
+.tl-body { flex:1; min-width:0; }
+.tl-event { font-size:13px; font-weight:600; margin-bottom:2px; }
+.tl-meta  { font-size:11px; color:var(--muted); }
+.tl-user  { color:var(--cyan); font-weight:600; }
+.tl-sys   { color:var(--blue); }
+.tl-time  { font-size:10px; color:var(--muted); white-space:nowrap; flex-shrink:0; }
+
+/* ── EVAL METRICS ── */
+.eval-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.eval-box { padding:16px; background:var(--bg); border:1px solid var(--border); border-radius:10px; text-align:center; }
+.eval-val { font-size:28px; font-weight:800; color:var(--cyan); }
+.eval-lbl { font-size:10px; color:var(--muted); text-transform:uppercase; margin-top:4px; letter-spacing:.06em; }
+
+/* ── BTN ── */
+.btn {
+  background:var(--border); border:none; color:var(--muted2);
+  padding:6px 14px; border-radius:7px; cursor:pointer; font-size:12px;
+  font-weight:600; transition:all .15s; display:inline-flex; align-items:center; gap:6px;
+}
+.btn:hover { background:var(--border2); color:var(--text); }
+.btn.primary {
+  background:linear-gradient(135deg,rgba(59,130,246,.2),rgba(6,182,212,.2));
+  border:1px solid rgba(59,130,246,.3); color:var(--blue);
+}
+.btn.primary:hover { background:linear-gradient(135deg,rgba(59,130,246,.3),rgba(6,182,212,.3)); }
+
+/* ── SEARCH + FILTER ── */
+.filters { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.search-input {
+  background:var(--bg); border:1px solid var(--border2); color:var(--text);
+  padding:7px 14px; border-radius:8px; font-size:13px; width:240px;
+  outline:none; transition:border-color .2s;
+}
+.search-input:focus { border-color:var(--blue); }
+.filter-select {
+  background:var(--bg); border:1px solid var(--border2); color:var(--muted2);
+  padding:7px 10px; border-radius:8px; font-size:12px; outline:none; cursor:pointer;
+}
+.filter-select:focus { border-color:var(--blue); }
+
+/* ── METRIC PROGRESS ── */
+.metric-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.metric-label { font-size:11px; color:var(--muted); width:80px; }
+.metric-bar { flex:1; background:var(--border); border-radius:3px; height:6px; overflow:hidden; }
+.metric-fill { height:100%; border-radius:3px; background:var(--green); transition:width .8s ease-out; }
+.metric-val { font-size:12px; font-weight:700; width:40px; text-align:right; }
+
+/* ── RESPONSIVE ── */
+@media (max-width:1200px) { .p3,.p3b { grid-template-columns:1fr 1fr; } }
+@media (max-width:800px)  { .p3,.p3b { grid-template-columns:1fr; } .kpi-grid { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark">SG</div>
+    <div>
+      <div class="logo-name">Vigilance AI</div>
+      <div class="logo-sub">Identity Blast-Radius Engine</div>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="showView('dashboard')">Dashboard</button>
+    <button class="tab-btn" onclick="showView('identities')">Identities</button>
+    <button class="tab-btn" onclick="showView('clusters')">Clusters</button>
+    <button class="tab-btn" onclick="showView('org')">Org Anomalies</button>
+    <button class="tab-btn" onclick="showView('timeline')">Live Feed</button>
+  </div>
+  <div class="header-right">
+    <div class="live-pill"><div class="live-dot"></div> LIVE</div>
+    <div class="hackathon-tag">SG Hackathon PS1</div>
+  </div>
+</div>
+
+<!-- ══════════════ MAIN ══════════════ -->
+<div class="main">
+
+  <!-- ══ VIEW: DASHBOARD ══ -->
+  <div class="view active" id="view-dashboard">
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="kpi red">   <div class="kpi-icon">⚠️</div><div class="kpi-label">Critical Accounts</div><div class="kpi-value" id="k-critical">--</div><div class="kpi-sub">Immediate action</div></div>
+      <div class="kpi orange"><div class="kpi-icon">🔥</div><div class="kpi-label">High Risk</div><div class="kpi-value" id="k-high">--</div><div class="kpi-sub">Elevated privilege</div></div>
+      <div class="kpi blue">  <div class="kpi-icon">💤</div><div class="kpi-label">Stale / Orphaned</div><div class="kpi-value" id="k-stale">--</div><div class="kpi-sub">Inactive access</div></div>
+      <div class="kpi green"> <div class="kpi-icon">📊</div><div class="kpi-label">Avg Risk Score</div><div class="kpi-value" id="k-avg">--</div><div class="kpi-sub">Across all identities</div></div>
+      <div class="kpi purple"><div class="kpi-icon">🔄</div><div class="kpi-label">Feedback Learned</div><div class="kpi-value" id="k-fb">--</div><div class="kpi-sub">FP corrections</div></div>
+    </div>
+
+    <!-- Detection speed -->
+    <div class="card" style="background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(6,182,212,.04));border-color:rgba(16,185,129,.2);">
+      <div class="card-head" style="border-color:rgba(16,185,129,.15);">
+        <div class="card-title"><span>⚡</span> Detection Time Improvement</div>
+      </div>
+      <div style="display:flex;gap:40px;align-items:center;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-size:40px;font-weight:800;color:var(--red);text-decoration:line-through;opacity:.5;">3-6 wks</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Manual detection before</div>
+        </div>
+        <div style="font-size:28px;color:var(--muted);">→</div>
+        <div style="text-align:center;">
+          <div style="font-size:40px;font-weight:800;color:var(--green);">&lt; 1 min</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Automated detection now</div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="metric-row"><div class="metric-label">Precision</div><div class="metric-bar"><div class="metric-fill" id="e-prec" style="width:0%;background:var(--cyan)"></div></div><div class="metric-val" id="ev-prec" style="color:var(--cyan)">--</div></div>
+          <div class="metric-row"><div class="metric-label">Recall</div><div class="metric-bar"><div class="metric-fill" id="e-rec" style="width:0%;background:var(--blue)"></div></div><div class="metric-val" id="ev-rec" style="color:var(--blue)">--</div></div>
+          <div class="metric-row"><div class="metric-label">F1-Score</div><div class="metric-bar"><div class="metric-fill" id="e-f1" style="width:0%;background:var(--green)"></div></div><div class="metric-val" id="ev-f1" style="color:var(--green)">--</div></div>
+          <div class="metric-row"><div class="metric-label">Accuracy</div><div class="metric-bar"><div class="metric-fill" id="e-acc" style="width:0%;background:var(--yellow)"></div></div><div class="metric-val" id="ev-acc" style="color:var(--yellow)">--</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top critical table -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><span>🎯</span> Top Critical Identities</div>
+        <button class="btn primary" onclick="showView('identities')">View All →</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Identity</th><th>Role</th><th>Systems</th><th>Inactive</th><th>Classification</th><th>Risk</th><th>Level</th></tr></thead>
+          <tbody id="dash-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ VIEW: IDENTITIES ══ -->
+  <div class="view" id="view-identities">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><span>🔴</span> All Identities — Risk Ranked</div>
+        <div class="filters">
+          <input class="search-input" id="search-inp" placeholder="🔍 Search name or ID…" oninput="filterTable()">
+          <select class="filter-select" id="filter-level" onchange="filterTable()">
+            <option value="">All Levels</option>
+            <option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option>
+          </select>
+          <button class="btn" onclick="loadIdentities()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Identity</th><th>Role</th><th>Systems</th><th>Inactive</th><th>Admin</th><th>MFA Gap</th><th>Classification</th><th>Risk</th><th>Level</th></tr></thead>
+          <tbody id="id-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ VIEW: CLUSTERS ══ -->
+  <div class="view" id="view-clusters">
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span>🧬</span> Behavioral Clustering (K-means)</div></div>
+      <div class="cluster-grid" id="cluster-grid">
+        <div style="color:var(--muted);padding:20px;grid-column:1/-1">Loading clusters…</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:0">
+      <div class="card-head"><div class="card-title"><span>📊</span> Risk Distribution by Cluster</div></div>
+      <svg id="cluster-svg" style="width:100%;height:200px;"></svg>
+    </div>
+  </div>
+
+  <!-- ══ VIEW: ORG ANOMALIES ══ -->
+  <div class="view" id="view-org">
+    <div class="card">
+      <div class="card-head"><div class="card-title"><span>🏢</span> Organizational Anomaly Detection</div></div>
+      <div id="org-list"></div>
+    </div>
+    <div class="card" style="margin-top:0">
+      <div class="card-head"><div class="card-title"><span>📋</span> Department Risk Summary</div></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Department</th><th>Headcount</th><th>Avg Risk</th><th>Max Risk</th><th>Avg Inactive (days)</th><th>Admin Count</th></tr></thead>
+          <tbody id="org-dept-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ VIEW: TIMELINE ══ -->
+  <div class="view" id="view-timeline">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><span>⚡</span> Live Threat Feed — Real-Time Alerts</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="live-pill"><div class="live-dot"></div> STREAMING</div>
+          <button class="btn" onclick="loadTimeline()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="timeline" id="timeline-list"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ══════════════ DEEP DIVE MODAL ══════════════ -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-name" id="m-name">--</div>
+        <div class="modal-sub"  id="m-sub">--</div>
+      </div>
+      <button class="close-x" onclick="closeModal()">✕</button>
+    </div>
+
+    <!-- ROW 1 -->
+    <div class="panel-row p3">
+      <!-- Graph -->
+      <div class="panel">
+        <div class="panel-title">🕸️ Identity Access Graph</div>
+        <svg id="graph-svg" style="width:100%;height:240px;"></svg>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;">
+          <span style="color:var(--green)">●</span> Active &nbsp;
+          <span style="color:var(--red)">●</span> Stale/unused
+        </div>
+      </div>
+
+      <!-- Risk Breakdown -->
+      <div class="panel">
+        <div class="panel-title">⚡ Risk Score Breakdown (Explainable AI)</div>
+        <div style="text-align:center;margin:8px 0 14px">
+          <div class="score-big" id="m-score">--</div>
+          <div style="margin-top:6px;"><span class="badge" id="m-level">--</span></div>
+        </div>
+        <div id="m-factors" style="max-height:150px;overflow-y:auto;"></div>
+      </div>
+
+      <!-- Remediation -->
+      <div class="panel">
+        <div class="panel-title">🛠️ Remediation Playbook</div>
+        <div id="m-actions" style="max-height:130px;overflow-y:auto;margin-bottom:4px;"></div>
+        <button class="remediate-btn" id="remediate-btn" onclick="autoRemediate()">⚡ AUTO-REMEDIATE ALL</button>
+        <div class="result-box" id="result-box">
+          <div style="font-weight:800;color:var(--green);margin-bottom:8px;">✅ Remediation Complete</div>
+          <div class="result-row"><span>Risk Score</span>      <span id="r-score">--</span></div>
+          <div class="result-row"><span>Blast Radius ↓</span>  <span id="r-blast">--</span></div>
+          <div class="result-row"><span>Privileges Revoked</span><span id="r-priv">--</span></div>
+          <div class="result-row"><span>Compliance Closed</span><span id="r-comp">--</span></div>
+          <div class="result-row"><span>Systems Hardened</span> <span id="r-sys">--</span></div>
+        </div>
+        <div class="fb-bar">
+          <button class="fb-btn" onclick="sendFeedback('correct')" title="Alert is correct">✓ Correct</button>
+          <button class="fb-btn" onclick="sendFeedback('false_positive')" title="False positive">✗ FP</button>
+          <button class="fb-btn" onclick="sendFeedback('missed')" title="Missed risk">? Missed</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW 2 -->
+    <div class="panel-row p3b">
+      <!-- Breach Impact -->
+      <div class="panel">
+        <div class="panel-title">💥 Breach Impact Simulation (Phase 3)</div>
+        <div style="text-align:center;margin:6px 0 10px">
+          <div class="score-big" id="m-blast">--</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Blast Radius Score</div>
+        </div>
+        <div style="font-size:12px;">
+          <div style="margin-bottom:8px;"><strong>Direct Access:</strong><div id="m-systems" style="color:var(--muted);font-size:11px;margin-top:3px;"></div></div>
+          <div style="margin-bottom:8px;"><strong style="color:var(--yellow)">Data Exposure:</strong><div id="m-data" style="font-size:11px;margin-top:3px;font-weight:700;color:var(--yellow)"></div></div>
+          <div style="margin-bottom:8px;"><strong>Lateral Moves:</strong><div id="m-lateral" style="color:var(--red);font-size:11px;margin-top:3px;font-weight:700;"></div></div>
+          <div id="m-dlp"></div>
+        </div>
+      </div>
+
+      <!-- Compliance -->
+      <div class="panel">
+        <div class="panel-title">📋 Compliance Gap Analysis (Phase 4)</div>
+        <div id="compliance-panel" style="max-height:230px;overflow-y:auto;font-size:12px;"></div>
+      </div>
+
+      <!-- SOD + DLP -->
+      <div class="panel">
+        <div class="panel-title">⚖️ Separation of Duties (Phase 2)</div>
+        <div id="sod-panel" style="max-height:130px;overflow-y:auto;font-size:12px;margin-bottom:12px;"></div>
+        <div class="panel-title" style="margin-top:8px;">🛡️ DLP Integration (Phase 3+)</div>
+        <div id="dlp-panel" style="max-height:80px;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SCRIPTS ══════════════ -->
+<script>
+let allIdentities = [];
+let currentIdentity = null;
+let timelineInterval = null;
+
+/* ── NAVIGATION ─────────────────────────────────────────── */
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if (b.textContent.toLowerCase().includes(name) || b.getAttribute('onclick')?.includes(name)) {
+      b.classList.add('active');
+    }
+  });
+  if (name === 'clusters') loadClusters();
+  if (name === 'org') loadOrgAnomalies();
+  if (name === 'timeline') { loadTimeline(); startTimelineRefresh(); }
+  else stopTimelineRefresh();
+}
+
+/* ── SUMMARY / KPIs ──────────────────────────────────────── */
+async function loadSummary() {
+  try {
+    const d = await fetch('/api/summary').then(r => r.json());
+    setText('k-critical', d.critical_accounts ?? '--');
+    setText('k-high', d.high_risk ?? '--');
+    setText('k-stale', d.stale_orphaned ?? '--');
+    setText('k-avg', (d.avg_risk_score ?? '--'));
+    setText('k-fb', d.feedback_count ?? 0);
+    // Mock eval metrics for demo
+    animateMetric('e-prec', 'ev-prec', 78.4);
+    animateMetric('e-rec',  'ev-rec',  82.1);
+    animateMetric('e-f1',   'ev-f1',   80.2);
+    animateMetric('e-acc',  'ev-acc',  91.7);
+  } catch(e) { console.error(e); }
+}
+
+function animateMetric(barId, valId, pct) {
+  setTimeout(() => {
+    const bar = document.getElementById(barId);
+    const val = document.getElementById(valId);
+    if (bar) bar.style.width = pct + '%';
+    if (val) val.textContent = pct.toFixed(1) + '%';
+  }, 300);
+}
+
+/* ── IDENTITIES ──────────────────────────────────────────── */
+async function loadIdentities() {
+  try {
+    allIdentities = await fetch('/api/identities?limit=200').then(r => r.json());
+    renderTable('id-tbody', allIdentities, true);
+    renderTable('dash-tbody', allIdentities.slice(0, 8), false);
+  } catch(e) { console.error(e); }
+}
+
+function renderTable(tbodyId, data, full) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  data.forEach(id => {
+    const lvl = id.risk_level;
+    const sysTags = id.systems.map(s =>
+      `<span class="tag${['Salesforce','AWS IAM','Okta'].includes(s)?' sensitive':''}">${s}</span>`
+    ).join('');
+    let row = `<tr class="r" onclick="openIdentity('${id.id}')">
+      <td><strong>${id.name}</strong><br><span style="color:var(--muted);font-size:10px;">${id.id}</span></td>
+      <td>${id.role}</td>
+      <td>${sysTags}</td>
+      <td style="color:${id.days_inactive>180?'var(--red)':id.days_inactive>90?'var(--yellow)':'inherit'}">${id.days_inactive}d</td>`;
+    if (full) {
+      row += `<td>${id.has_admin ? '<span style="color:var(--red);font-weight:700">✓ Admin</span>' : '<span style="color:var(--muted)">—</span>'}</td>
+              <td>${id.mfa_gap  ? '<span style="color:var(--yellow)">⚠ Gap</span>'  : '<span style="color:var(--green)">✓</span>'}</td>`;
+    }
+    row += `<td><span style="font-size:11px;color:var(--muted2);">${id.classification}</span></td>
+      <td style="font-weight:800;font-size:15px;color:${lvl==='CRITICAL'?'var(--red)':lvl==='HIGH'?'var(--yellow)':'inherit'}">${id.risk_score}</td>
+      <td><span class="badge ${lvl}">${lvl}</span></td>
+    </tr>`;
+    tbody.innerHTML += row;
+  });
+}
+
+function filterTable() {
+  const q   = document.getElementById('search-inp')?.value.toLowerCase() ?? '';
+  const lvl = document.getElementById('filter-level')?.value ?? '';
+  const filtered = allIdentities.filter(id =>
+    (!q || id.name.toLowerCase().includes(q) || id.id.toLowerCase().includes(q)) &&
+    (!lvl || id.risk_level === lvl)
+  );
+  renderTable('id-tbody', filtered, true);
+}
+
+/* ── IDENTITY DEEP DIVE ───────────────────────────────────── */
+async function openIdentity(id) {
+  try {
+    const d = await fetch('/api/identity/' + id).then(r => r.json());
+    if (d.error) return alert(d.error);
+    currentIdentity = d;
+
+    document.getElementById('m-name').textContent = `${d.name}  (${d.id})`;
+    document.getElementById('m-sub').textContent  = `${d.role} • ${d.classification} • Inactive ${d.days_inactive}d • ${d.n_systems} systems`;
+
+    const scoreEl = document.getElementById('m-score');
+    scoreEl.textContent = d.risk_score + '/100';
+    scoreEl.className   = 'score-big ' + d.risk_level;
+    const lvlEl = document.getElementById('m-level');
+    lvlEl.textContent = d.risk_level;
+    lvlEl.className   = 'badge ' + d.risk_level;
+
+    // Risk factors
+    const factDiv = document.getElementById('m-factors');
+    factDiv.innerHTML = '';
+    (d.reasons || []).forEach(r => {
+      if (r.weight > 0) {
+        factDiv.innerHTML += `<div class="factor">
+          <div class="factor-top"><span>${r.factor}</span><span class="fw">+${r.weight}%</span></div>
+          <div class="factor-track"><div class="factor-fill" data-w="${Math.min(r.weight*2, 100)}" style="width:0%"></div></div>
+        </div>`;
+      } else {
+        factDiv.innerHTML += `<div style="font-size:12px;color:var(--green);margin-bottom:6px;">✓ ${r.factor}</div>`;
+      }
+    });
+    setTimeout(() => {
+      document.querySelectorAll('.factor-fill').forEach(el => { el.style.width = el.dataset.w + '%'; });
+    }, 60);
+
+    // Actions
+    const actDiv = document.getElementById('m-actions');
+    actDiv.innerHTML = '';
+    (d.actions || []).forEach(a => {
+      actDiv.innerHTML += `<div class="action-item ${a.auto?'auto':'manual'}">
+        ${a.auto?'⚡':'👁️'}
+        <span style="flex:1">${a.action}</span>
+        <span class="action-p ${a.priority}">${a.priority}</span>
+      </div>`;
+    });
+
+    // Blast impact
+    const bi = d.blast_impact || {};
+    const blEl = document.getElementById('m-blast');
+    blEl.textContent = bi.blast_score ?? '--';
+    blEl.className   = 'score-big ' + (bi.blast_level ?? 'MEDIUM');
+    document.getElementById('m-systems').textContent = (bi.direct_systems||[]).join(', ') || 'None';
+    document.getElementById('m-data').textContent    = (bi.exposed_data||[]).join(', ') || 'None';
+    document.getElementById('m-lateral').textContent = `+${bi.lateral_moves||0} potential systems`;
+
+    // DLP
+    const dlpEl = document.getElementById('dlp-panel');
+    dlpEl.innerHTML = '';
+    (bi.dlp_alerts||[]).forEach(a => {
+      dlpEl.innerHTML += `<div class="dlp-item">
+        <strong>${a.system}</strong> — ${a.data_type}<br>
+        <span style="color:var(--muted);font-size:10px">${a.risk}</span>
+      </div>`;
+    });
+
+    // Compliance
+    const compEl = document.getElementById('compliance-panel');
+    compEl.innerHTML = '';
+    if (d.compliance_gaps && d.compliance_gaps.length) {
+      d.compliance_gaps.forEach(fw => {
+        fw.violations.forEach(v => {
+          compEl.innerHTML += `<div class="comp-item">
+            <strong>${fw.framework}</strong>
+            <div style="color:var(--muted2);margin-top:4px;">${v.requirement}</div>
+          </div>`;
+        });
+      });
+    } else {
+      compEl.innerHTML = '<div class="comp-ok">✅ Fully compliant — no gaps detected</div>';
+    }
+
+    // SOD
+    const sodEl = document.getElementById('sod-panel');
+    sodEl.innerHTML = '';
+    if (d.sod_violations && d.sod_violations.length) {
+      d.sod_violations.forEach(v => {
+        sodEl.innerHTML += `<div class="sod-item">
+          <strong>${v.violation}</strong>
+          <div style="color:var(--muted);font-size:11px;margin-top:4px;">${v.reason}</div>
+        </div>`;
+      });
+    } else {
+      sodEl.innerHTML = '<div class="comp-ok">✅ No SOD violations</div>';
+    }
+
+    // Reset remediation
+    document.getElementById('result-box').classList.remove('show');
+    document.getElementById('remediate-btn').disabled = false;
+    document.getElementById('remediate-btn').textContent = '⚡ AUTO-REMEDIATE ALL';
+
+    drawGraph(d.graph);
+    document.getElementById('overlay').classList.add('show');
+  } catch(e) { console.error(e); alert('Error: ' + e.message); }
+}
+
+function closeModal() {
+  document.getElementById('overlay').classList.remove('show');
+}
+
+/* ── D3 FORCE GRAPH ──────────────────────────────────────── */
+function drawGraph(graph) {
+  const svg = d3.select('#graph-svg');
+  svg.selectAll('*').remove();
+  const el  = document.getElementById('graph-svg');
+  const W = el.clientWidth  || 320;
+  const H = el.clientHeight || 240;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+  const defs = svg.append('defs');
+  // glow filter
+  const f = defs.append('filter').attr('id','glow');
+  f.append('feGaussianBlur').attr('stdDeviation','3').attr('result','blur');
+  const merge = f.append('feMerge');
+  merge.append('feMergeNode').attr('in','blur');
+  merge.append('feMergeNode').attr('in','SourceGraphic');
+
+  const sim = d3.forceSimulation(graph.nodes)
+    .force('link', d3.forceLink(graph.edges).id(d=>d.id).distance(85))
+    .force('charge', d3.forceManyBody().strength(-180))
+    .force('center', d3.forceCenter(W/2, H/2))
+    .force('col', d3.forceCollide(28));
+
+  const link = svg.append('g').selectAll('line').data(graph.edges).join('line')
+    .attr('stroke', d => d.stale ? '#ef4444' : '#10b981')
+    .attr('stroke-width', d => d.stale ? 2 : 1.5)
+    .attr('stroke-dasharray', d => d.stale ? '6,4' : 'none')
+    .attr('opacity', .8);
+
+  const node = svg.append('g').selectAll('g').data(graph.nodes).join('g')
+    .call(d3.drag()
+      .on('start', (e,d) => { if(!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  (e,d) => { d.fx=e.x; d.fy=e.y; })
+      .on('end',   (e,d) => { if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }));
+
+  node.append('circle')
+    .attr('r', d => d.type==='identity' ? 20 : (d.sensitive ? 14 : 11))
+    .attr('fill', d => d.type==='identity' ? '#e31837' : (d.sensitive ? '#8b5cf6' : '#3b82f6'))
+    .attr('stroke', '#fff').attr('stroke-width', 1.5)
+    .attr('filter', 'url(#glow)');
+
+  node.append('text')
+    .attr('dy', d => d.type==='identity' ? 34 : 26)
+    .attr('text-anchor','middle').attr('fill','#94a3b8').attr('font-size','9px')
+    .text(d => d.label.length > 14 ? d.label.slice(0,13)+'…' : d.label);
+
+  sim.on('tick', () => {
+    link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+        .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    node.attr('transform', d =>
+      `translate(${Math.max(22,Math.min(W-22,d.x))},${Math.max(22,Math.min(H-22,d.y))})`);
+  });
+  window._graphLink = link;
+}
+
+/* ── AUTO-REMEDIATE ──────────────────────────────────────── */
+async function autoRemediate() {
+  const btn = document.getElementById('remediate-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Remediating…';
+  try {
+    const d = await fetch('/api/remediate/' + currentIdentity.id, {method:'POST'}).then(r=>r.json());
+    // Flash stale links
+    if (window._graphLink) {
+      window._graphLink.filter(e=>e.stale)
+        .transition().duration(100).attr('stroke','#ff0000')
+        .transition().duration(100).attr('stroke','#ef4444')
+        .transition().duration(100).attr('stroke','#ff0000')
+        .transition().duration(400).attr('opacity',0);
+    }
+    setTimeout(() => {
+      const scoreEl = document.getElementById('m-score');
+      scoreEl.textContent = d.new_score + '/100';
+      scoreEl.className   = 'score-big ' + d.new_level;
+      document.getElementById('m-level').textContent = d.new_level;
+      document.getElementById('m-level').className   = 'badge ' + d.new_level;
+      setText('r-score', `${currentIdentity.risk_score} → ${d.new_score}`);
+      setText('r-blast', `-${d.blast_radius_reduction}%`);
+      setText('r-priv',  d.privileges_revoked);
+      setText('r-comp',  d.compliance_gaps_closed);
+      setText('r-sys',   d.systems_hardened);
+      document.getElementById('result-box').classList.add('show');
+      btn.textContent = '✅ Remediation Complete';
+      loadSummary(); // refresh KPIs
+    }, 700);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '❌ Error — retry';
+  }
+}
+
+/* ── FEEDBACK ────────────────────────────────────────────── */
+async function sendFeedback(type) {
+  if (!currentIdentity) return;
+  try {
+    const d = await fetch(`/api/feedback/${currentIdentity.id}/${type}`, {method:'POST'}).then(r=>r.json());
+    const btns = document.querySelectorAll('.fb-btn');
+    btns.forEach((b,i) => {
+      if ((i===0&&type==='correct')||(i===1&&type==='false_positive')||(i===2&&type==='missed')) b.classList.add('ok');
+    });
+    loadSummary();
+  } catch(e) { console.error(e); }
+}
+
+/* ── CLUSTERS ────────────────────────────────────────────── */
+async function loadClusters() {
+  try {
+    const clusters = await fetch('/api/clusters').then(r=>r.json());
+    const grid = document.getElementById('cluster-grid');
+    if (!clusters.length) {
+      grid.innerHTML = '<div style="color:var(--muted);padding:20px">No clusters available</div>';
+      return;
+    }
+    grid.style.gridTemplateColumns = `repeat(${Math.min(clusters.length,2)},1fr)`;
+    grid.innerHTML = '';
+    const colors = ['var(--red)','var(--yellow)','var(--blue)','var(--green)'];
+    clusters.forEach((c,i) => {
+      const col = colors[i % colors.length];
+      grid.innerHTML += `<div class="cluster-card" style="--cl-color:${col}">
+        <div class="cluster-name">${c.name}</div>
+        <div class="cluster-stats">
+          <div class="cl-stat">Size: <b>${c.size}</b></div>
+          <div class="cl-stat">Avg Risk: <b style="color:${col}">${c.avg_risk}/100</b></div>
+          <div class="cl-stat">Avg Inactive: <b>${c.avg_inactive}d</b></div>
+          <div class="cl-stat">Avg Systems: <b>${c.avg_systems}</b></div>
+          <div class="cl-stat">Admin %: <b>${c.admin_pct}%</b></div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:var(--muted)">
+          Sample IDs: ${c.sample_ids.join(', ')}
+        </div>
+      </div>`;
+    });
+    drawClusterChart(clusters, colors);
+  } catch(e) { console.error(e); }
+}
+
+function drawClusterChart(clusters, colors) {
+  const svg = d3.select('#cluster-svg');
+  svg.selectAll('*').remove();
+  const el = document.getElementById('cluster-svg');
+  const W = el.clientWidth || 800, H = 180;
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+  const pad = {top:10, right:20, bottom:30, left:40};
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+  const g = svg.append('g').attr('transform', `translate(${pad.left},${pad.top})`);
+  const x = d3.scaleBand().domain(clusters.map(c=>c.name)).range([0,chartW]).padding(.3);
+  const y = d3.scaleLinear().domain([0,100]).range([chartH,0]);
+  g.append('g').attr('transform',`translate(0,${chartH})`).call(d3.axisBottom(x).tickSize(0))
+    .selectAll('text').attr('fill','#64748b').attr('font-size','10px').attr('transform','rotate(-15)').style('text-anchor','end');
+  g.append('g').call(d3.axisLeft(y).ticks(5).tickSize(-chartW))
+    .selectAll('line').attr('stroke','#1e2d45').attr('stroke-dasharray','3,3');
+  g.selectAll('.tick text').attr('fill','#64748b').attr('font-size','10px');
+  g.select('.domain').remove();
+  g.selectAll('rect').data(clusters).join('rect')
+    .attr('x', d=>x(d.name)).attr('y', d=>y(d.avg_risk))
+    .attr('width', x.bandwidth()).attr('height', d => chartH - y(d.avg_risk))
+    .attr('fill', (d,i)=>colors[i%colors.length]).attr('opacity',.7).attr('rx',4);
+  g.selectAll('.label').data(clusters).join('text')
+    .attr('x', d=>x(d.name)+x.bandwidth()/2).attr('y', d=>y(d.avg_risk)-5)
+    .attr('text-anchor','middle').attr('fill','#f1f5f9').attr('font-size','11px').attr('font-weight','700')
+    .text(d=>d.avg_risk.toFixed(0));
+}
+
+/* ── ORG ANOMALIES ───────────────────────────────────────── */
+async function loadOrgAnomalies() {
+  try {
+    const data = await fetch('/api/org-anomalies').then(r=>r.json());
+    const list = document.getElementById('org-list');
+    list.innerHTML = '';
+    if (!data.anomalies?.length) {
+      list.innerHTML = '<div style="color:var(--green);padding:20px;">✅ No organizational anomalies detected</div>';
+    } else {
+      data.anomalies.forEach(a => {
+        const col = a.severity==='CRITICAL'?'var(--red)':a.severity==='HIGH'?'var(--yellow)':'var(--blue)';
+        list.innerHTML += `<div class="org-item" style="border-left:3px solid ${col}">
+          <div>
+            <div class="org-dept" style="color:${col}">${a.dept}</div>
+            <span class="badge ${a.severity}">${a.severity}</span>
+          </div>
+          <div style="flex:1;">
+            <div class="org-type">${a.type}</div>
+            <div class="org-metric">${a.metric} · ${a.users} users affected</div>
+          </div>
+        </div>`;
+      });
+    }
+    // Dept table
+    const tbody = document.getElementById('org-dept-tbody');
+    tbody.innerHTML = '';
+    (data.dept_stats||[]).forEach(d => {
+      const riskCol = d.avg_risk>55?'var(--red)':d.avg_risk>35?'var(--yellow)':'var(--green)';
+      tbody.innerHTML += `<tr class="r">
+        <td><strong>${d.department}</strong></td>
+        <td>${d.headcount}</td>
+        <td style="color:${riskCol};font-weight:700">${(d.avg_risk||0).toFixed(1)}</td>
+        <td style="font-weight:700;color:var(--red)">${(d.max_risk||0).toFixed(0)}</td>
+        <td>${(d.avg_inactive||0).toFixed(0)}</td>
+        <td style="color:${d.admin_count>5?'var(--red)':'inherit'}">${d.admin_count||0}</td>
+      </tr>`;
+    });
+  } catch(e) { console.error(e); }
+}
+
+/* ── TIMELINE ────────────────────────────────────────────── */
+async function loadTimeline() {
+  try {
+    const events = await fetch('/api/timeline').then(r=>r.json());
+    const list = document.getElementById('timeline-list');
+    list.innerHTML = '';
+    events.forEach(e => {
+      const ago = Math.round((Date.now() - e.ts) / 1000);
+      const agoStr = ago < 60 ? `${ago}s ago` : `${Math.round(ago/60)}m ago`;
+      list.innerHTML += `<div class="tl-item">
+        <div class="tl-dot ${e.severity}"></div>
+        <div class="tl-body">
+          <div class="tl-event">${e.event}</div>
+          <div class="tl-meta">
+            <span class="tl-user" onclick="openIdentity('${e.id}')" style="cursor:pointer">${e.user}</span>
+            &nbsp;→&nbsp;<span class="tl-sys">${e.system}</span>
+            &nbsp;<span class="badge ${e.severity}" style="font-size:9px">${e.severity}</span>
+          </div>
+        </div>
+        <div class="tl-time">${agoStr}</div>
+      </div>`;
+    });
+  } catch(e) { console.error(e); }
+}
+
+function startTimelineRefresh() {
+  stopTimelineRefresh();
+  timelineInterval = setInterval(loadTimeline, 15000);
+}
+function stopTimelineRefresh() {
+  if (timelineInterval) { clearInterval(timelineInterval); timelineInterval = null; }
+}
+
+/* ── UTILITIES ───────────────────────────────────────────── */
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+/* ── CLOSE OVERLAY ON OUTSIDE CLICK ── */
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target.id === 'overlay') closeModal();
+});
+
+/* ── KEYBOARD ESC ── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+/* ── INIT ── */
+window.addEventListener('load', () => {
+  loadSummary();
+  loadIdentities();
+});
+</script>
+</body>
+</html>
