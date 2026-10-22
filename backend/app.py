@@ -9,10 +9,12 @@ from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 import pandas as pd
 import numpy as np
-import json, os, random, threading, time
+import json, os, random, sys, threading, time
 from datetime import datetime
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from identity_providers import (
     fetch_live_identities, test_connections,
     get_provider_status, _parse_days_inactive
